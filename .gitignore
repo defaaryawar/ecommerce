@@ -1,0 +1,10 @@
+.env
+*.exe
+/bin/
+/tmp/
+.idea/
+.vscode/
+.antigravity/
+node_modules/
+.next/
+dist/
