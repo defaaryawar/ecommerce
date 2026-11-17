@@ -22,7 +22,10 @@ const (
 	AudienceStorefront Audience = "storefront" // customer / pembeli
 )
 
-// Claims isi token. TenantID wajib untuk merchant & storefront, kosong untuk platform.
+// Claims isi token. TenantID wajib untuk merchant, kosong untuk platform & storefront.
+// Storefront tanpa tenant_id karena di marketplace pembeli adalah akun global —
+// bisa belanja di toko mana saja. Yang menentukan "beli di toko mana" adalah isi cart,
+// bukan identity.
 type Claims struct {
 	TenantID string   `json:"tenant_id,omitempty"`
 	Role     string   `json:"role,omitempty"`  // role merchant: owner/admin/staff
@@ -55,7 +58,10 @@ func (i *Issuer) Issue(aud Audience, subject string, c Claims) (string, time.Tim
 	if !ok {
 		return "", time.Time{}, fmt.Errorf("auth: audience %q tidak dikonfigurasi", aud)
 	}
-	if aud != AudiencePlatform && c.TenantID == "" {
+	// Hanya merchant yang wajib punya tenant_id.
+	// Platform = tim internal (tidak per-toko).
+	// Storefront = pembeli global di marketplace (bisa belanja di toko mana saja).
+	if aud == AudienceMerchant && c.TenantID == "" {
 		return "", time.Time{}, fmt.Errorf("auth: token %q wajib punya tenant_id", aud)
 	}
 	now := time.Now()

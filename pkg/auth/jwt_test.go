@@ -10,8 +10,9 @@ import (
 func newTestIssuer(t *testing.T, ttl time.Duration) *Issuer {
 	t.Helper()
 	iss, err := NewIssuer("test", ttl, map[Audience][]byte{
-		AudienceMerchant: []byte(strings.Repeat("m", 32)),
-		AudiencePlatform: []byte(strings.Repeat("p", 32)),
+		AudienceMerchant:   []byte(strings.Repeat("m", 32)),
+		AudiencePlatform:   []byte(strings.Repeat("p", 32)),
+		AudienceStorefront: []byte(strings.Repeat("s", 32)),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -63,6 +64,39 @@ func TestMerchantWajibTenant(t *testing.T) {
 	iss := newTestIssuer(t, time.Minute)
 	if _, _, err := iss.Issue(AudienceMerchant, "user-1", Claims{}); err == nil {
 		t.Fatal("token merchant tanpa tenant_id harusnya gagal dibuat")
+	}
+}
+
+func TestStorefrontBolehTanpaTenant(t *testing.T) {
+	iss := newTestIssuer(t, time.Minute)
+	tok, _, err := iss.Issue(AudienceStorefront, "buyer-1", Claims{})
+	if err != nil {
+		t.Fatalf("storefront tanpa tenant_id harusnya boleh, dapat error: %v", err)
+	}
+	c, err := iss.Verify(AudienceStorefront, tok)
+	if err != nil {
+		t.Fatalf("token storefront valid ditolak: %v", err)
+	}
+	if c.Subject != "buyer-1" {
+		t.Fatalf("subject salah: %s", c.Subject)
+	}
+	if c.TenantID != "" {
+		t.Fatalf("storefront global seharusnya tanpa tenant_id, dapat: %s", c.TenantID)
+	}
+}
+
+func TestStorefrontBolehDenganTenant(t *testing.T) {
+	iss := newTestIssuer(t, time.Minute)
+	tok, _, err := iss.Issue(AudienceStorefront, "buyer-1", Claims{TenantID: "tenant-1"})
+	if err != nil {
+		t.Fatalf("storefront dengan tenant_id harusnya boleh juga, dapat error: %v", err)
+	}
+	c, err := iss.Verify(AudienceStorefront, tok)
+	if err != nil {
+		t.Fatalf("token storefront valid ditolak: %v", err)
+	}
+	if c.TenantID != "tenant-1" {
+		t.Fatalf("tenant_id salah: %s", c.TenantID)
 	}
 }
 
