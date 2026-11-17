@@ -8,9 +8,9 @@
 - [x] Tahap 2B: pg-txn + replica, kafka, kafka-ui, redis, jaeger (lihat catatan di bawah)
 - [x] Tahap 3: proto identity v1 + buf generate
 - [x] Tahap 4: pkg/ (config, logger, otelx, auth JWT 3 realm, tenantctx RLS)
-- [ ] Tahap 5: identity service (domain, app, adapter postgres, handler connect) + unit test
-- [ ] Tahap 6: jalanin identity ke Postgres, cek trace di Jaeger
-- [ ] Tahap 7: gateway
+- [X] Tahap 5: identity service (domain, app, adapter postgres, handler connect) + unit test
+- [X] Tahap 6: jalanin identity ke Postgres, cek trace di Jaeger
+- [X] Tahap 7: gateway
 
 ## Catatan
 - Shell: PowerShell 5.1 (pakai `;` atau baris terpisah, bukan `&&`)
