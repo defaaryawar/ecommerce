@@ -53,8 +53,8 @@ func (r *Repo) CreateOwnerWithTenant(ctx context.Context, u domain.User, t domai
 			return err
 		}
 		_, err = tx.Exec(ctx,
-			`insert into outbox (aggregate_type, aggregate_id, event_type, tenant_id, payload)
-			 values ('tenant', $1, 'identity.tenant.registered.v1', $2, $3)`,
+			`insert into outbox (aggregate_type, aggregate_id, event_type, topic, tenant_id, payload)
+			 values ('tenant', $1, 'identity.tenant.registered.v1', 'identity.tenant.events.v1', $2, $3)`,
 			t.ID, t.ID, string(payload),
 		)
 		return err

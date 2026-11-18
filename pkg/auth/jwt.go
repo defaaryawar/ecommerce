@@ -61,8 +61,8 @@ func (i *Issuer) Issue(aud Audience, subject string, c Claims) (string, time.Tim
 	// Hanya merchant yang wajib punya tenant_id.
 	// Platform = tim internal (tidak per-toko).
 	// Storefront = pembeli global di marketplace (bisa belanja di toko mana saja).
-	if aud == AudienceMerchant && c.TenantID == "" {
-		return "", time.Time{}, fmt.Errorf("auth: token %q wajib punya tenant_id", aud)
+	if err := checkScope(aud, &c); err != nil {
+		return "", time.Time{}, fmt.Errorf("auth: %w", err)
 	}
 	now := time.Now()
 	exp := now.Add(i.ttl)
@@ -98,5 +98,25 @@ func (i *Issuer) Verify(aud Audience, token string) (*Claims, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrInvalidToken, err)
 	}
+	if err := checkScope(aud, c); err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrInvalidToken, err)
+	}
 	return c, nil
+}
+
+// checkScope: aturan isi token per realm. Dipakai saat menerbitkan DAN memverifikasi,
+// supaya token yang melanggar aturan ditolak walaupun tanda tangannya valid.
+func checkScope(aud Audience, c *Claims) error {
+	switch aud {
+	case AudienceMerchant:
+		if c.TenantID == "" {
+			return fmt.Errorf("token %q wajib punya tenant_id", aud)
+		}
+	case AudiencePlatform, AudienceStorefront:
+		// Platform = tim internal, storefront = pembeli global. Keduanya tidak per-toko.
+		if c.TenantID != "" {
+			return fmt.Errorf("token %q tidak boleh punya tenant_id", aud)
+		}
+	}
+	return nil
 }

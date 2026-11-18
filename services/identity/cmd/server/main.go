@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -19,12 +20,14 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
+	"github.com/twmb/franz-go/pkg/kgo"
 
 	"github.com/defaaryawar/ecommerce/gen/go/identity/v1/identityv1connect"
 	"github.com/defaaryawar/ecommerce/pkg/auth"
 	"github.com/defaaryawar/ecommerce/pkg/config"
 	"github.com/defaaryawar/ecommerce/pkg/logger"
 	"github.com/defaaryawar/ecommerce/pkg/otelx"
+	"github.com/defaaryawar/ecommerce/pkg/outbox"
 	"github.com/defaaryawar/ecommerce/services/identity/internal/adapter/grpcadapter"
 	"github.com/defaaryawar/ecommerce/services/identity/internal/adapter/postgres"
 	"github.com/defaaryawar/ecommerce/services/identity/internal/app"
@@ -79,6 +82,29 @@ func run() error {
 			return fmt.Errorf("migrasi: %w", err)
 		}
 		log.Info("migrasi selesai")
+	}
+
+	// --- Outbox relay -> Kafka (aktif kalau KAFKA_BROKERS diisi) ---
+	if brokers := config.String("KAFKA_BROKERS", ""); brokers != "" {
+		kc, err := kgo.NewClient(
+			kgo.SeedBrokers(strings.Split(brokers, ",")...),
+			kgo.AllowAutoTopicCreation(), // dev saja. Production: topic dibuat eksplisit
+			kgo.RecordDeliveryTimeout(10*time.Second),
+		)
+		if err != nil {
+			return fmt.Errorf("kafka client: %w", err)
+		}
+		defer kc.Close()
+
+		relayCtx, stopRelay := context.WithCancel(ctx)
+		relayDone := make(chan struct{})
+		go func() {
+			defer close(relayDone)
+			outbox.NewRelay(pool, kc, log, outbox.Config{}).Run(relayCtx)
+		}()
+		// Urutan defer (LIFO): relay berhenti dulu, baru Kafka client dan pool ditutup.
+		defer func() { stopRelay(); <-relayDone }()
+		log.Info("outbox relay aktif", "brokers", brokers)
 	}
 
 	// --- Wiring: susun dari lapis paling dalam ke luar ---
